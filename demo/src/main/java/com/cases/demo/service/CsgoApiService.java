@@ -1,4 +1,4 @@
-package com.cases.demo;
+package com.cases.demo.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,53 +17,66 @@ public class CsgoApiService {
                 .build();
     }
 
-    public void fetchCollections() {
-        Mono<String> response = webClient.get()
+    public Mono<String> fetchFilteredChroma3Skins() {
+        return webClient.get()
                 .uri("/CSGO-API/api/en/collections.json")
                 .retrieve()
-                .bodyToMono(String.class);
+                .bodyToMono(String.class)
+                .map(this::filterSkinsWithChroma3Case);
+    }
 
-        // Filter the response
-        response.map(this::filterSkinsWithChroma3Case)
-                .subscribe(filteredJson -> System.out.println("Filtered JSON: " + filteredJson));
+    public Mono<String> obtainedChroma3Skins() {
+        return webClient.get()
+                .uri("/CSGO-API/api/en/collections.json")
+                .retrieve()
+                .bodyToMono(String.class)
+                .map(this::OpenChroma3Case);
     }
 
     private String filterSkinsWithChroma3Case(String response) {
         try {
-            // Convert the response to a JsonNode
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode rootNode = objectMapper.readTree(response);
-
-            // Create a new JsonNode to store filtered skins
             JsonNode filteredSkins = objectMapper.createArrayNode();
 
-            // Iterate over the collections
             for (JsonNode collection : rootNode) {
-                if (!collection.has("crates")) {
-                    continue; // Skip if "crates" is missing
-                }
+                if (!collection.has("crates")) continue;
 
-                // Log all crate names to see the available ones
-                for (JsonNode crate : collection.get("crates")) {
-                    System.out.println("Crate name: " + crate.get("name").asText());
-                }
-
-                // Check for "Chroma 3 Case" in crates (case-sensitive match)
                 for (JsonNode crate : collection.get("crates")) {
                     if ("Chroma 3 Case".equals(crate.get("name").asText())) {
-                        // Add skin to filtered list if "Chroma 3 Case" is found
                         ((com.fasterxml.jackson.databind.node.ArrayNode) filteredSkins).add(collection);
-                        break; // Stop once we've found a match
+                        break;
                     }
                 }
             }
-
-            // Return filtered JSON as a string
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(filteredSkins);
         } catch (Exception e) {
             e.printStackTrace();
-            return "Error processing JSON response.";
+            return "{\"error\":\"Error processing JSON response.\"}";
         }
     }
 
+    private String OpenChroma3Case(String response) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode rootNode = objectMapper.readTree(response);
+            JsonNode filteredSkins = objectMapper.createArrayNode();
+            JsonNode obtainedSkins = objectMapper.createArrayNode();
+
+            for (JsonNode collection : rootNode) {
+                if (!collection.has("crates")) continue;
+
+                for (JsonNode crate : collection.get("crates")) {
+                    if ("Chroma 3 Case".equals(crate.get("name").asText())) {
+                        ((com.fasterxml.jackson.databind.node.ArrayNode) filteredSkins).add(collection);
+                        break;
+                    }
+                }
+            }
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(filteredSkins);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "{\"error\":\"Error processing JSON response.\"}";
+        }
+    }
 }
